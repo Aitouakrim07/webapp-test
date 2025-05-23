@@ -1,5 +1,5 @@
 import Header from "../ui/common/Header";
-import users from "@/app/lib/placeholder-data";
+import users from "@/lib/placeholder-data";
 import Sidebar from "../ui/common/Sidebar";
 import Footer from "../ui/common/Footer";
 

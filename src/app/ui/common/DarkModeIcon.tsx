@@ -1,6 +1,6 @@
 "use client";
 
-import { IconMoon } from "@tabler/icons-react";
+import { IconMoon, IconSun } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
 
 export default function DarkModeIcon() {
@@ -27,7 +27,8 @@ export default function DarkModeIcon() {
   return (
     <div className="nav-item me-2">
       <button onClick={() => setDarkMode(!darkMode)} className="nav-link px-0">
-        <IconMoon size={24} />
+        {darkMode || <IconMoon size={24} />}
+        {darkMode && <IconSun size={24} />}
       </button>
     </div>
   );

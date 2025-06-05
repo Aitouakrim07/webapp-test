@@ -1,3 +1,13 @@
+"use client";
+
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import { useEffect } from "react";
+
 export default function Home() {
-  return <div>ROOT</div>;
+  useEffect(() => {
+    redirect("/dashboard");
+  }, []);
+
+  return null;
 }

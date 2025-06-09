@@ -1,8 +1,11 @@
 name: Deploy to Lab0
 
 on:
-  push:
-    branches: [main]
+  workflow_run:
+    workflows: ["Docker Image CI"]
+    types: [completed]
+    branches:
+      - main
 
 jobs:
   deploy:

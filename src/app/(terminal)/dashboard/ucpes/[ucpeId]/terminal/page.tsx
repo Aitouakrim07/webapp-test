@@ -1,60 +1,67 @@
+// src/app/(terminal)/dashboard/ucpes/[ucpeId]/terminal/page.tsx
+// Real SSH terminal component using WebSocket connection
+
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import type { Terminal as XTermTerminal, ITerminalAddon } from "xterm";
 import "xterm/css/xterm.css";
 import "./slide.css";
 import "./terminal-fullscreen.css";
-import { IconArrowLeft } from "@tabler/icons-react";
+import { IconArrowLeft, IconCircle, IconAlertCircle } from "@tabler/icons-react";
+
+// Interface for connection status tracking
+interface ConnectionStatus {
+  status: 'connecting' | 'connected' | 'disconnected' | 'error';
+  message?: string;
+}
 
 export default function TerminalScreen() {
-  // --- Refs and State ---
-
-  // Get the ucpeId from the URL parameters
+  // --- Hooks and State ---
   const params = useParams();
   const ucpeId = params.ucpeId as string;
-  // Ref to hold the DOM element where the terminal will be mounted
+
+  // Refs for terminal components
   const terminalRef = useRef<HTMLDivElement>(null);
-
-  // Ref to store the FitAddon instance so it can be accessed for resizing
   const fitAddonInstanceRef = useRef<ITerminalAddon | null>(null);
+  const terminalInstanceRef = useRef<XTermTerminal | null>(null);
+  const websocketRef = useRef<WebSocket | null>(null);
+  
+  // Connection status for UI feedback
+  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>({
+    status: 'disconnected'
+  });
 
-  // --- Terminal Initialization ---
-
+  // --- Terminal Setup Effect ---
   useEffect(() => {
-    // Don't proceed if the mounting point isn't ready or if ucpeId is missing
+    // Don't proceed if terminal container isn't ready or ucpeId is missing
     if (!terminalRef.current || !ucpeId) return;
 
-    // --- Variables ---
     let term: XTermTerminal | null = null;
     let resizeObserver: ResizeObserver | null = null;
-    let onDataDisposable: { dispose: () => void } | null = null;
+    let ws: WebSocket | null = null;
 
-    // --- Dynamic Imports ---
-    // xterm.js is a client-side library and will cause errors if imported directly
-    // in a Server-Side Rendered environment. We use dynamic imports to ensure
-    // the code only runs on the client.
+    // Step 1: Initialize xterm.js with dynamic imports (client-side only)
     import("xterm")
       .then((xtermModule) => {
         import("xterm-addon-fit")
           .then((fitAddonModule) => {
-            // Double-check if the ref is still mounted before proceeding
-            if (!terminalRef.current) return;
-
-            // --- Terminal Setup ---
+            if (!terminalRef.current) return; // Double-check ref is still valid
 
             const TerminalConstructor = xtermModule.Terminal;
             const FitAddonConstructor = fitAddonModule.FitAddon;
 
-            // Create a new terminal instance with custom theme and options
+            // Step 2: Create terminal instance with custom theme
             term = new TerminalConstructor({
               cursorBlink: true,
+              fontSize: 14,
+              fontFamily: 'Monaco, Menlo, "Ubuntu Mono", monospace',
               theme: {
-                background: "#1a1b1e",
-                foreground: "#f8f9fa",
-                cursor: "#f8f9fa",
+                background: "#1a1b1e",     // Dark background
+                foreground: "#f8f9fa",     // Light text
+                cursor: "#f8f9fa",         // Light cursor
                 black: "#1a1b1e",
                 brightBlack: "#868e96",
                 red: "#fa5252",
@@ -74,115 +81,278 @@ export default function TerminalScreen() {
               },
             });
 
-            // --- Addons ---
+            terminalInstanceRef.current = term;
 
-            // Create and load the "Fit" addon to make the terminal responsive
+            // Step 3: Setup fit addon for responsive terminal
             const localFitAddon = new FitAddonConstructor();
             fitAddonInstanceRef.current = localFitAddon;
             term.loadAddon(localFitAddon);
-
-            // Mount the terminal to the designated div
             term.open(terminalRef.current!);
+            localFitAddon.fit();
 
-            // Fit the terminal to the container size.
-            // A timeout is used to ensure the DOM is fully rendered.
-            setTimeout(() => localFitAddon.fit(), 0);
+            // Step 4: Show initial connection message
+            term.writeln('🔗 Connecting to uCPE terminal...');
+            setConnectionStatus({ 
+              status: 'connecting', 
+              message: 'Establishing WebSocket connection...' 
+            });
 
-            // --- Initial Output ---
-            term.writeln(`Connected to uCPE ${ucpeId}`);
-            term.writeln("This is a simulated terminal.");
-            term.write("$ ");
+            // Step 5: Setup WebSocket connection to our API route
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}/api/terminal/${ucpeId}`;
+            
+            console.log(`Connecting to WebSocket: ${wsUrl}`);
+            ws = new WebSocket(wsUrl);
+            websocketRef.current = ws;
 
-            // --- Event Listeners ---
+            // Step 6: WebSocket Event Handlers
 
-            // Use a ResizeObserver to automatically refit the terminal when the window size changes
+            // Connection opened
+            ws.onopen = () => {
+              console.log('WebSocket connection opened');
+              setConnectionStatus({ 
+                status: 'connecting', 
+                message: 'Authenticating SSH connection...' 
+              });
+            };
+
+            // Message received from server
+            ws.onmessage = (event) => {
+              try {
+                const data = JSON.parse(event.data);
+                
+                switch (data.type) {
+                  case 'connected':
+                    // SSH connection established successfully
+                    setConnectionStatus({ 
+                      status: 'connected', 
+                      message: data.message 
+                    });
+                    term?.clear(); // Clear connection messages
+                    term?.writeln(`\x1b[32m✅ ${data.message}\x1b[0m`); // Green success message
+                    term?.writeln(''); // Empty line
+                    break;
+                    
+                  case 'data':
+                    // Real terminal output from uCPE
+                    term?.write(data.data);
+                    break;
+                    
+                  case 'error':
+                    // Connection or SSH error
+                    setConnectionStatus({ 
+                      status: 'error', 
+                      message: data.message 
+                    });
+                    term?.writeln(`\x1b[31m❌ Error: ${data.message}\x1b[0m`); // Red error message
+                    break;
+                    
+                  case 'disconnected':
+                    // SSH session ended
+                    setConnectionStatus({ 
+                      status: 'disconnected', 
+                      message: data.message 
+                    });
+                    term?.writeln(`\x1b[33m🔌 ${data.message}\x1b[0m`); // Yellow disconnect message
+                    break;
+                    
+                  default:
+                    console.log('Unknown WebSocket message type:', data.type);
+                }
+              } catch (error) {
+                console.error('Error parsing WebSocket message:', error);
+              }
+            };
+
+            // WebSocket error occurred
+            ws.onerror = (error) => {
+              console.error('WebSocket error:', error);
+              setConnectionStatus({ 
+                status: 'error', 
+                message: 'WebSocket connection error' 
+              });
+              term?.writeln('\x1b[31m❌ Connection error occurred\x1b[0m');
+            };
+
+            // WebSocket connection closed
+            ws.onclose = (event) => {
+              console.log('WebSocket closed:', event.code, event.reason);
+              setConnectionStatus({ 
+                status: 'disconnected', 
+                message: 'Connection closed' 
+              });
+              
+              if (event.code !== 1000) { // Not a normal closure
+                term?.writeln('\x1b[31m🔌 Connection lost unexpectedly\x1b[0m');
+              }
+            };
+
+            // Step 7: Handle user input (keyboard -> uCPE)
+            term.onData((data: string) => {
+              if (ws && ws.readyState === WebSocket.OPEN) {
+                // Send user keystrokes to SSH session
+                ws.send(JSON.stringify({
+                  type: 'input',
+                  data: data
+                }));
+              }
+            });
+
+            // Step 8: Handle terminal resize events
+            term.onResize((size) => {
+              if (ws && ws.readyState === WebSocket.OPEN) {
+                // Notify SSH session of terminal size change
+                ws.send(JSON.stringify({
+                  type: 'resize',
+                  rows: size.rows,
+                  cols: size.cols
+                }));
+              }
+            });
+
+            // Step 9: Setup resize observer for responsive terminal
             resizeObserver = new ResizeObserver(() => {
               try {
-                localFitAddon.fit();
+                localFitAddon.fit(); // Adjust terminal size to container
               } catch (e) {
-                // This can happen if the terminal is hidden, so we just log a warning.
-                console.warn(
-                  "FitAddon.fit() failed, terminal might be hidden."
-                );
+                console.warn("FitAddon.fit() failed, terminal might be hidden.");
               }
             });
             resizeObserver.observe(terminalRef.current!);
 
-            // --- Input Handling ---
-            let currentLine = "";
-            onDataDisposable = term.onData((data: string) => {
-              if (!term) return; // Guard against disposed terminal
-
-              switch (data) {
-                case "\r": // Enter key
-                  term.write("\r\n");
-                  if (currentLine.trim() === "exit") {
-                    term.writeln("Simulating disconnect...");
-                  } else if (currentLine.trim() !== "") {
-                    // Simulate an echo command
-                    term.writeln(`echo: ${currentLine}`);
-                  }
-                  term.write("$ ");
-                  currentLine = "";
-                  break;
-                case "\u007F": // Backspace
-                  if (currentLine.length > 0) {
-                    term.write("\b \b"); // Move cursor back, write space, move back again
-                    currentLine = currentLine.slice(0, -1);
-                  }
-                  break;
-                default:
-                  // Handle printable characters
-                  if (
-                    (data >= String.fromCharCode(0x20) &&
-                      data <= String.fromCharCode(0x7e)) ||
-                    data >= "\u00a0"
-                  ) {
-                    currentLine += data;
-                    term.write(data);
-                  }
-              }
-            });
           })
-          .catch((error) =>
+          .catch((error) => 
             console.error("Failed to load xterm-addon-fit", error)
           );
       })
-      .catch((error) => console.error("Failed to load xterm", error));
+      .catch((error) => 
+        console.error("Failed to load xterm", error)
+      );
 
     // --- Cleanup Function ---
-    // This function is returned from useEffect and runs when the component unmounts.
-    // It's crucial for preventing memory leaks.
     return () => {
+      console.log(`Cleaning up terminal for uCPE: ${ucpeId}`);
+      
       if (resizeObserver) {
         resizeObserver.disconnect();
       }
-      if (onDataDisposable) {
-        onDataDisposable.dispose();
+      if (ws) {
+        ws.close(); // Close WebSocket connection
       }
       if (term) {
-        term.dispose();
+        term.dispose(); // Clean up terminal instance
       }
+      
+      // Clear refs
       fitAddonInstanceRef.current = null;
+      terminalInstanceRef.current = null;
+      websocketRef.current = null;
     };
-  }, [ucpeId]); // The effect re-runs if ucpeId changes
+  }, [ucpeId]); // Re-run effect if ucpeId changes
 
-  // --- Render Logic ---
+  // --- Helper Functions ---
+
+  // Get appropriate status icon based on connection state
+  const getStatusIcon = () => {
+    switch (connectionStatus.status) {
+      case 'connected':
+        return <IconCircle size={12} className="text-success" fill="currentColor" />;
+      case 'connecting':
+        return <IconCircle size={12} className="text-warning" fill="currentColor" />;
+      case 'error':
+        return <IconAlertCircle size={12} className="text-danger" />;
+      case 'disconnected':
+      default:
+        return <IconCircle size={12} className="text-muted" fill="currentColor" />;
+    }
+  };
+
+  // Get status text for display
+  const getStatusText = () => {
+    switch (connectionStatus.status) {
+      case 'connected':
+        return 'Connected';
+      case 'connecting':
+        return 'Connecting...';
+      case 'error':
+        return 'Error';
+      case 'disconnected':
+      default:
+        return 'Disconnected';
+    }
+  };
+
+  // Handle reconnection attempt
+  const handleReconnect = () => {
+    if (websocketRef.current) {
+      websocketRef.current.close(); // Close existing connection
+    }
+    
+    // Reload page to trigger fresh connection
+    window.location.reload();
+  };
+
+  // --- Error Handling ---
+  if (!ucpeId) {
+    return (
+      <div className="terminal-fullscreen-container">
+        <div className="p-4 text-center">
+          <h3>Loading terminal parameters...</h3>
+        </div>
+      </div>
+    );
+  }
+
+  // --- Render UI ---
   return (
-    // terminal-fullscreen.css to cover the viewport
     <div className="terminal-fullscreen-container">
-      {/* Header section with a "Back" button */}
+      {/* Header with status and controls */}
       <div className="terminal-header">
-        <Link
-          href={`/dashboard/ucpes/${ucpeId}`}
-          className="btn btn-sm btn-secondary d-inline-flex align-items-center"
-        >
-          <IconArrowLeft size={16} className="me-1" /> Back to Details
-        </Link>
+        <div className="d-flex justify-content-between align-items-center">
+          {/* Back button */}
+          <Link
+            href={`/dashboard/ucpes/${ucpeId}`}
+            className="btn btn-sm btn-secondary d-inline-flex align-items-center"
+          >
+            <IconArrowLeft size={16} className="me-1" /> Back to Details
+          </Link>
+          
+          {/* Connection status and controls */}
+          <div className="d-flex align-items-center">
+            {/* Status indicator */}
+            <div className="d-flex align-items-center me-3">
+              {getStatusIcon()}
+              <span className="ms-1 small text-light">
+                {getStatusText()}
+              </span>
+              {connectionStatus.message && (
+                <span className="ms-1 small text-muted">
+                  - {connectionStatus.message}
+                </span>
+              )}
+            </div>
+            
+            {/* Reconnect button (shown when disconnected or error) */}
+            {(connectionStatus.status === 'disconnected' || 
+              connectionStatus.status === 'error') && (
+              <button
+                onClick={handleReconnect}
+                className="btn btn-sm btn-outline-primary"
+                title="Reconnect to terminal"
+              >
+                Reconnect
+              </button>
+            )}
+          </div>
+        </div>
       </div>
 
-      {/* The div where the xterm.js terminal will be mounted */}
-      <div ref={terminalRef} className="terminal-content" />
+      {/* Terminal container */}
+      <div 
+        ref={terminalRef} 
+        className="terminal-content"
+        style={{ backgroundColor: '#1a1b1e' }}
+      />
     </div>
   );
 }

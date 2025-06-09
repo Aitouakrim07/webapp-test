@@ -1,6 +1,6 @@
 services:
   app:
-    image: ghcr.io/my-it-crew/ucpe-webapp:latest
+    image: ghcr.io/my-it-crew/ucpe-webapp:main
     ports:
       - "3000:3000"
     env_file: .env

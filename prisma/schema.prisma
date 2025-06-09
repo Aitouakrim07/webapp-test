@@ -22,3 +22,22 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
+
+// UCPE (Universal Customer Premises Equipment) model
+model UCPE {
+  id          String      @id @default(cuid())
+  name        String
+  ipAddress   String      
+  location    String
+  status      Status      @default(OFFLINE) 
+  lastSeen    DateTime    @default(now())
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  @@map("ucpe")
+}
+
+enum Status { 
+  ONLINE 
+  OFFLINE 
+  MAINTENANCE 
+}

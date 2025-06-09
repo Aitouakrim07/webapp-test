@@ -1,0 +1,16 @@
+/* slide.css */
+
+:root {
+  --slide-duration: 200ms;
+}
+.slide-in {
+  animation: slide-in-anim var(--slide-duration) ease-out forwards;
+}
+@keyframes slide-in-anim {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}

@@ -1,7 +1,7 @@
 "use server";
-import Header from "../ui/common/Header";
-import Sidebar from "../ui/common/Sidebar";
-import Footer from "../ui/common/Footer";
+import Header from "../../ui/common/Header";
+import Sidebar from "../../ui/common/Sidebar";
+import Footer from "../../ui/common/Footer";
 
 export default async function Layout({
   children,

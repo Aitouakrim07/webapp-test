@@ -49,17 +49,26 @@ export default function SidebarMenuItems() {
   return (
     <div className="navbar-collapse collapse" id="sidebar-menu">
       <ul className="navbar-nav pt-lg-3">
-        {links.map((link) => (
-          <li
-            key={link.path}
-            className={clsx("nav-item", { active: pathname === link.path })}
-          >
-            <Link key={link.name} href={link.path} className="nav-link">
-              <span className="nav-link-icon">{link.icon}</span>
-              <span className="nav-link-title">{link.label}</span>
-            </Link>
-          </li>
-        ))}
+        {links.map((link) => {
+          // The 'Dashboard' link should only be active on exact match.
+          // Other links should be active if the current path starts with their path.
+          const isActive =
+            link.path === "/dashboard"
+              ? pathname === link.path
+              : pathname.startsWith(link.path);
+
+          return (
+            <li
+              key={link.path}
+              className={clsx("nav-item", { active: isActive })}
+            >
+              <Link key={link.name} href={link.path} className="nav-link">
+                <span className="nav-link-icon">{link.icon}</span>
+                <span className="nav-link-title">{link.label}</span>
+              </Link>
+            </li>
+          );
+        })}
       </ul>
     </div>
   );

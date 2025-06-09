@@ -1,0 +1,35 @@
+/* Ensure terminal takes up full viewport */
+.terminal-fullscreen-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 9999; /* Higher than any other element */
+  background-color: #1a1b1e;
+  color: #f8f9fa;
+  display: flex;
+  flex-direction: column;
+  width: 100vw;
+  height: 100vh;
+}
+
+/* Header area styling */
+.terminal-header {
+  padding: 12px;
+  flex-shrink: 0;
+}
+
+/* Terminal content area - fills remaining space */
+.terminal-content {
+  flex: 1 1 auto;
+  overflow: hidden;
+  padding: 0 16px 16px 16px;
+  min-height: 0; /* Important for flex child inside flexbox */
+}
+
+/* Make sure xterm.js terminal fits the container */
+.terminal-content .xterm {
+  height: 100%;
+  width: 100%;
+}

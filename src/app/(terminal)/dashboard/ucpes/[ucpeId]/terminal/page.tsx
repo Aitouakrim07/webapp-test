@@ -99,10 +99,11 @@ export default function TerminalScreen() {
             resizeObserver = new ResizeObserver(() => {
               try {
                 localFitAddon.fit();
-              } catch (e) {
+              } catch (error) {
                 // This can happen if the terminal is hidden, so we just log a warning.
                 console.warn(
-                  "FitAddon.fit() failed, terminal might be hidden."
+                  "FitAddon.fit() failed, terminal might be hidden. Error:",
+                  error
                 );
               }
             });

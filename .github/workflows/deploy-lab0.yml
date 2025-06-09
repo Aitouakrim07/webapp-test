@@ -1,0 +1,32 @@
+name: Deploy to Lab0
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.LAB_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan ${{ secrets.LAB_HOST }} >> ~/.ssh/known_hosts
+      - name: Deploy to server via SSH
+        run: |
+          echo Update docker-compose.yml
+          scp docker-compose.yml ${{ secrets.LAB_SSH_USER }}@${{ secrets.LAB_HOST }}:${{ secrets.LAB_PATH }}/docker-compose.yml
+          echo Update server
+          ssh ${{ secrets.LAB_SSH_USER }}@${{ secrets.LAB_HOST }} << 'EOF'
+            set -e
+            cd ${{ secrets.LAB_PATH }}
+            echo -n ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            docker compose stop
+            docker compose rm -f
+            docker compose pull
+            docker compose up -d
+          EOF

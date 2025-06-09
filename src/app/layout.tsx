@@ -20,7 +20,10 @@ export default function RootLayout({
         />
       </head>
       <body className={`${lexend.className} antialiased`}>
-        <script src="https://cdn.jsdelivr.net/npm/@tabler/core@1.3.2/dist/js/tabler.min.js"></script>
+        <script
+          src="https://cdn.jsdelivr.net/npm/@tabler/core@1.3.2/dist/js/tabler.min.js"
+          defer
+        ></script>
         {children}
       </body>
     </html>

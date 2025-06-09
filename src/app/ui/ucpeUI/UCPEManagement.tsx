@@ -3,9 +3,8 @@
 import { useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { IconPlus } from "@tabler/icons-react";
-import { UCPE, Status } from "@/app/generated/prisma";
+import { UCPE } from "@/app/generated/prisma";
 import UCPEFormModal from "./UCPEFormModal";
-import clsx from "clsx";
 import UCPEStatusBadge from "./UCPEStatusBadge";
 
 interface Props {

@@ -8,13 +8,13 @@ import UCPEFormModal from "./UCPEFormModal";
 import DeleteConfirmModal from "../common/DeleteConfirmModal";
 import { deleteUCPE as serverDeleteUCPE } from "../../(main)/dashboard/ucpes/actions";
 
-interface UcpeDetailClientPartProps {
+interface UCPEDetailClientPartProps {
   ucpe: UCPE;
 }
 
-export default function UcpeDetailClientPart({
+export default function UCPEDetailClientPart({
   ucpe,
-}: UcpeDetailClientPartProps) {
+}: UCPEDetailClientPartProps) {
   // --- Hooks ---
   const router = useRouter(); // For navigation (used after deletion).
   const [isDeletePending, startDeleteTransition] = useTransition(); // For pending UI state during deletion.

@@ -2,7 +2,6 @@
 
 import { createUCPE, updateUCPE } from "@/app/(main)/dashboard/ucpes/actions";
 import { Status } from "@/app/generated/prisma";
-import { useRouter } from "next/navigation";
 import { useState, useEffect, useTransition } from "react";
 
 type UCPEPayload = {

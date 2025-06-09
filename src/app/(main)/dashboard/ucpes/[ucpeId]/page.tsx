@@ -7,7 +7,7 @@ import { Status } from "@/app/generated/prisma";
 import UCPEStatusBadge from "@/app/ui/ucpeUI/UCPEStatusBadge";
 
 interface UcpeDetailProps {
-  params: { ucpeId: string };
+  params: Promise<{ ucpeId: string }>;
 }
 
 export default async function UcpeDetail({ params }: UcpeDetailProps) {

@@ -6,8 +6,8 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import type { Terminal as XTermTerminal, ITerminalAddon } from "xterm";
-import "xterm/css/xterm.css";
+import type { Terminal as XTermTerminal, ITerminalAddon } from "@xterm/xterm";
+import "@xterm/xterm/css/xterm.css";
 import "./slide.css";
 import "./terminal-fullscreen.css";
 import { IconArrowLeft, IconCircle, IconAlertCircle } from "@tabler/icons-react";
@@ -44,9 +44,9 @@ export default function TerminalScreen() {
     let ws: WebSocket | null = null;
 
     // Step 1: Initialize xterm.js with dynamic imports (client-side only)
-    import("xterm")
+    import("@xterm/xterm")
       .then((xtermModule) => {
-        import("xterm-addon-fit")
+        import("@xterm/addon-fit")
           .then((fitAddonModule) => {
             if (!terminalRef.current) return; // Double-check ref is still valid
 

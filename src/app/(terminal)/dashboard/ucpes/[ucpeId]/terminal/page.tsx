@@ -21,7 +21,7 @@ interface ConnectionStatus {
 export default function TerminalScreen() {
   // --- Hooks and State ---
   const params = useParams();
-  const ucpeId = params.ucpeId as string;
+  const ucpeId = params?.ucpeId as string;
 
   // Refs for terminal components
   const terminalRef = useRef<HTMLDivElement>(null);

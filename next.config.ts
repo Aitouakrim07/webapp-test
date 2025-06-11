@@ -3,10 +3,8 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   /* config options here */
   reactStrictMode: false,
-// Optimize for WebSocket and SSH connections
-  experimental: {
-    serverComponentsExternalPackages: ['ssh2', 'ws'],
-  },
+  // Fix the deprecated option
+  serverExternalPackages: ['ssh2', 'ws'],
   
   // Configure webpack for better WebSocket handling
   webpack: (config, { isServer }) => {

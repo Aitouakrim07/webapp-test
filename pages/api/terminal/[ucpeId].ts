@@ -175,15 +175,106 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             sshReady = true
             console.log(`✅ SSH connection ready for uCPE: ${ucpeId} (WS: ${connectionId})`)
             
+            // CRITICAL: Check WebSocket state BEFORE creating shell
+            if (connectionClosed || ws.readyState !== ws.OPEN) {
+              console.log(`❌ WebSocket ${connectionId} closed before shell creation`)
+              ssh.end()
+              reject(new Error('WebSocket closed before shell creation'))
+              return
+            }
+            
             ssh.shell((err, stream) => {
               if (err) {
+                console.error(`❌ SSH shell creation error for ${connectionId}:`, err)
                 reject(err)
+                return
+              }
+              
+              // CRITICAL: Check WebSocket state IMMEDIATELY after shell creation
+              if (connectionClosed || ws.readyState !== ws.OPEN) {
+                console.log(`❌ WebSocket ${connectionId} closed immediately after shell creation`)
+                stream.end()
+                ssh.end()
+                reject(new Error('WebSocket closed after shell creation'))
                 return
               }
               
               sshStream = stream
               console.log(`🐚 SSH shell created for uCPE: ${ucpeId} (WS: ${connectionId})`)
-              resolve()
+              
+              // DELAY the success message to prevent timing race condition
+              setTimeout(() => {
+                if (!connectionClosed && ws.readyState === ws.OPEN) {
+                  try {
+                    ws.send(JSON.stringify({
+                      type: 'connected',
+                      message: `Connected to uCPE ${ucpe.name}`
+                    }))
+                    console.log(`📤 Sent connected message for ${connectionId}`)
+                  } catch (sendError) {
+                    console.error(`❌ Error sending connected message for ${connectionId}:`, sendError)
+                  }
+                } else {
+                  console.log(`❌ Cannot send connected message - WebSocket ${connectionId} closed`)
+                }
+              }, 100) // 100ms delay
+              
+              // Set up stream event handlers with error protection
+              try {
+                // Forward SSH output to WebSocket (uCPE → Browser)
+                stream.on('data', (data: Buffer) => {
+                  if (!connectionClosed && ws.readyState === ws.OPEN) {
+                    try {
+                      ws.send(JSON.stringify({
+                        type: 'data',
+                        data: data.toString()
+                      }))
+                    } catch (sendError) {
+                      console.error(`❌ Error sending SSH data for ${connectionId}:`, sendError)
+                      // Don't close connection on send errors, just log
+                    }
+                  }
+                })
+          
+                // Handle stream close
+                stream.on('close', () => {
+                  console.log(`📤 SSH stream closed for uCPE: ${ucpeId} (WS: ${connectionId})`)
+                  if (!connectionClosed && ws.readyState === ws.OPEN) {
+                    try {
+                      ws.send(JSON.stringify({
+                        type: 'disconnected',
+                        message: 'SSH session ended'
+                      }))
+                      ws.close(1000, 'SSH session ended')
+                    } catch (sendError) {
+                      console.error(`❌ Error sending disconnect message for ${connectionId}:`, sendError)
+                    }
+                  }
+                })
+          
+                stream.on('error', (streamErr: Error) => {
+                  console.error(`❌ SSH stream error for ${connectionId}:`, streamErr)
+                  if (!connectionClosed && ws.readyState === ws.OPEN) {
+                    try {
+                      ws.send(JSON.stringify({
+                        type: 'error',
+                        message: 'SSH stream error'
+                      }))
+                    } catch (sendError) {
+                      console.error(`❌ Error sending stream error for ${connectionId}:`, sendError)
+                    }
+                  }
+                })
+                
+                console.log(`✅ Stream event handlers set up for ${connectionId}`)
+                resolve() // Only resolve after ALL handlers are set up
+                
+              } catch (handlerError) {
+                console.error(`❌ Error setting up stream handlers for ${connectionId}:`, handlerError)
+                stream.end()
+                ssh.end()
+                reject(handlerError)
+              }
             })
           })
 
@@ -233,31 +324,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             return
           }
 
-          // Send success message
-          ws.send(JSON.stringify({
-            type: 'connected',
-            message: `Connected to uCPE ${ucpe.name}`,
-            connectionInfo: {
-              frpPort: ucpe.frpPort,
-              sshUser: process.env.SSH_USER || 'ouakrim',
-              frpServerHost: process.env.FRP_SERVER_HOST || 'lab0.myitcrew.io'
-            }
-          }))
-
-          // Set up SSH data forwarding
-          sshStream.on('data', (data: Buffer) => {
-            if (!connectionClosed && ws.readyState === ws.OPEN) {
-              ws.send(JSON.stringify({
-                type: 'data',
-                data: data.toString()
-              }))
-            }
-          })
-
           // Handle WebSocket messages (Browser → uCPE)
           ws.on('message', (message: Buffer) => {
             try {
-              if (connectionClosed || !sshStream) return
+              if (connectionClosed || !sshStream) {
+                console.log(`🚫 Ignoring message - connection closed or no stream for ${connectionId}`)
+                return
+              }
               
               const data = JSON.parse(message.toString())
               if (data.type === 'input' && sshStream) {
@@ -266,29 +339,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 sshStream.setWindow(data.rows, data.cols)
               }
             } catch (err) {
-              console.error(`WebSocket ${connectionId} message parse error:`, err)
-            }
-          })
-
-          // Handle SSH stream close
-          sshStream.on('close', () => {
-            console.log(`📤 SSH stream closed for uCPE: ${ucpeId} (WS: ${connectionId})`)
-            if (!connectionClosed && ws.readyState === ws.OPEN) {
-              ws.send(JSON.stringify({
-                type: 'disconnected',
-                message: 'SSH session ended'
-              }))
-              ws.close(1000, 'SSH session ended')
-            }
-          })
-
-          sshStream.on('error', (err: Error) => {
-            console.error(`❌ SSH stream error for ${connectionId}:`, err)
-            if (!connectionClosed && ws.readyState === ws.OPEN) {
-              ws.send(JSON.stringify({
-                type: 'error',
-                message: 'SSH stream error'
-              }))
+              console.error(`❌ WebSocket message parse error for ${connectionId}:`, err)
+              // Don't close connection on parse errors
             }
           })
 

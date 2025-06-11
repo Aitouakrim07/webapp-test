@@ -36,9 +36,13 @@ export default function TerminalScreen() {
 
   // --- Terminal Setup Effect ---
   useEffect(() => {
+    console.log('🔄 useEffect triggered, ucpeId:', ucpeId);
+    console.log('🔄 terminalRef.current exists:', !!terminalRef.current);
     // Don't proceed if terminal container isn't ready or ucpeId is missing
-    if (!terminalRef.current || !ucpeId) return;
-
+    if (!terminalRef.current || !ucpeId){
+	 console.log('🔄 useEffect early return - missing refs');
+	 return;
+    }
     let term: XTermTerminal | null = null;
     let resizeObserver: ResizeObserver | null = null;
     let ws: WebSocket | null = null;
@@ -120,6 +124,7 @@ export default function TerminalScreen() {
             ws.onmessage = (event) => {
               try {
                 const data = JSON.parse(event.data);
+                console.log('Received WebSocket message:', data);
                 
                 switch (data.type) {
                   case 'connected':
@@ -134,8 +139,14 @@ export default function TerminalScreen() {
                     break;
                     
                   case 'data':
-                    // Real terminal output from uCPE
-                    term?.write(data.data);
+                    // ADD THIS DEBUG:
+                    console.log('Writing to terminal:', data.data, 'Type:', typeof data.data);
+                    // Check if data.data exists before writing
+                    if (data.data !== undefined && term) {
+                      term.write(data.data);
+                    } else {
+                      console.error('data.data is undefined or term is null');
+                    }
                     break;
                     
                   case 'error':
@@ -175,15 +186,20 @@ export default function TerminalScreen() {
             };
 
             // WebSocket connection closed
-            ws.onclose = (event) => {
-              console.log('WebSocket closed:', event.code, event.reason);
-              setConnectionStatus({ 
-                status: 'disconnected', 
-                message: 'Connection closed' 
+            // WebSocket connection closed
+	    ws.onclose = (event) => {
+  	      console.log('WebSocket closed:', event.code, event.reason);
+              console.log('Close event details:', event);
+              console.log('Was clean close?', event.wasClean);
+  
+              setConnectionStatus({
+                 status: 'disconnected',
+                 message: 'Connection closed'
               });
-              
+
               if (event.code !== 1000) { // Not a normal closure
-                term?.writeln('\x1b[31m🔌 Connection lost unexpectedly\x1b[0m');
+                  term?.writeln('\x1b[31m🔌 Connection lost unexpectedly\x1b[0m');
+                  console.error('Abnormal WebSocket closure, code:', event.code);
               }
             };
 
@@ -231,15 +247,18 @@ export default function TerminalScreen() {
 
     // --- Cleanup Function ---
     return () => {
-      console.log(`Cleaning up terminal for uCPE: ${ucpeId}`);
-      
+      console.log(`🧹 CLEANUP TRIGGERED for uCPE: ${ucpeId}`);
+      console.trace('Cleanup stack trace:'); // Shows what triggered cleanup
       if (resizeObserver) {
+        console.log('🧹 Disconnecting resize observer');
         resizeObserver.disconnect();
       }
       if (ws) {
+        console.log('🧹 Closing WebSocket from cleanup');
         ws.close(); // Close WebSocket connection
       }
       if (term) {
+        console.log('🧹 Disposing terminal');
         term.dispose(); // Clean up terminal instance
       }
       

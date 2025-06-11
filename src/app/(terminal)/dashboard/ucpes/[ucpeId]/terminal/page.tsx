@@ -3,8 +3,8 @@
 import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import type { Terminal as XTermTerminal, ITerminalAddon } from "xterm";
-import "xterm/css/xterm.css";
+import type { Terminal as XTermTerminal, ITerminalAddon } from "@xterm/xterm";
+import "@xterm/xterm/css/xterm.css";
 import "./slide.css";
 import "./terminal-fullscreen.css";
 import { IconArrowLeft } from "@tabler/icons-react";
@@ -36,9 +36,9 @@ export default function TerminalScreen() {
     // xterm.js is a client-side library and will cause errors if imported directly
     // in a Server-Side Rendered environment. We use dynamic imports to ensure
     // the code only runs on the client.
-    import("xterm")
+    import("@xterm/xterm")
       .then((xtermModule) => {
-        import("xterm-addon-fit")
+        import("@xterm/addon-fit")
           .then((fitAddonModule) => {
             // Double-check if the ref is still mounted before proceeding
             if (!terminalRef.current) return;

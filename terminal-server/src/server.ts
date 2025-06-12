@@ -1,11 +1,3 @@
-/**
- * @file terminal-server/src/server.ts
- * @description This script sets up a WebSocket server that provides a pseudo-terminal (PTY)
- * to clients. It uses `node-pty` to spawn a shell process on the server and pipes the
- * input/output between the shell and the client's WebSocket connection, effectively
- * creating a web-based terminal.
- */
-
 import express from 'express';
 import http from "http";
 import { WebSocketServer } from 'ws';

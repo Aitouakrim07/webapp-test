@@ -91,11 +91,10 @@ export default function TerminalScreen() {
 
             // --- WebSocket Setup ---
             const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-            const wsUrl = `${protocol}//${window.location.hostname}:3002/terminal`;
+            const wsUrl = protocol + "//" + window.location.hostname + ":3002/terminal/" + ucpeId;
             console.log("Connecting to WebSocket:", wsUrl);
             ws = new WebSocket(wsUrl);
             ws.onopen = () => {
-              // Announce connection; the server's pty will provide the first prompt
               term?.writeln(`\r\n\x1b[32m[WS connected to PTY]\x1b[0m`);
             };
             ws.onmessage = (evt) => {

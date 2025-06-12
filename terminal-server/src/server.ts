@@ -24,7 +24,6 @@ const server = http.createServer(app);
 const wss = new WebSocketServer({ server, path: '/terminal' });
 
 // Determine the appropriate shell for the host operating system.
-// 'bash' is used for Unix-like systems (Linux, macOS), and 'powershell.exe' for Windows.
 const shell = os.platform() === 'win32' ? 'powershell.exe' : 'bash';
 
 // --- WebSocket Connection Handling ---
@@ -35,11 +34,11 @@ wss.on('connection', (ws) => {
   // For every new client connection, we spawn a new PTY process.
   // This ensures each user has their own isolated terminal session.
   const ptyProcess = pty.spawn(shell, [], {
-    name: 'xterm-color', // Emulates a color-capable terminal.
-    cols: 80, // Initial number of columns.
-    rows: 30, // Initial number of rows.
-    cwd: process.env.HOME, // Sets the working directory of the shell to the user's home.
-    env: process.env // Passes the server's environment variables to the shell.
+    name: 'xterm-color', 
+    cols: 80, 
+    rows: 30, 
+    cwd: process.env.HOME, 
+    env: process.env 
   });
 
   // --- Data Piping ---
@@ -51,8 +50,7 @@ wss.on('connection', (ws) => {
   });
 
   // Listen for messages coming from the client (i.e., user input).
-  // This input is written directly to the PTY process, which handles it
-  // as if it were typed into a real terminal.
+  // This input is written directly to the PTY process.
   ws.on('message', (message) => {
     ptyProcess.write(message.toString());
   });
@@ -62,8 +60,6 @@ wss.on('connection', (ws) => {
   // Set up a listener for when the client's WebSocket connection closes.
   ws.on('close', () => {
     console.log('Client disconnected from PTY');
-    // It's crucial to kill the PTY process to prevent orphaned processes
-    // from consuming server resources.
     ptyProcess.kill();
   });
 });

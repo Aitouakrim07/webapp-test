@@ -31,6 +31,7 @@ model UCPE {
   location    String
   status      Status      @default(OFFLINE) 
   lastSeen    DateTime    @default(now())
+  frpPort     Int?        @unique  
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
   @@map("ucpe")

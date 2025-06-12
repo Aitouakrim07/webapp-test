@@ -16,26 +16,7 @@ export async function main() {
       ipAddress: "192.168.1.100",
       location: "Remote Site A",
       status: Status.ONLINE,
-      lastSeen: new Date(),
-    },
-  });
-
-  const ucpe2 = await prisma.uCPE.create({
-    data: {
-      name: "Edge Device 002",
-      ipAddress: "192.168.1.101",
-      location: "Remote Site B",
-      status: Status.OFFLINE,
-      lastSeen: new Date(Date.now() - 24 * 60 * 60 * 1000), // 1 day ago
-    },
-  });
-
-  const ucpe3 = await prisma.uCPE.create({
-    data: {
-      name: "Edge Device 003",
-      ipAddress: "192.168.1.102",
-      location: "Remote Site C",
-      status: Status.ONLINE,
+      frpPort: 2001,
       lastSeen: new Date(),
     },
   });

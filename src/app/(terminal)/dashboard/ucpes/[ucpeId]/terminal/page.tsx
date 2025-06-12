@@ -31,6 +31,7 @@ export default function TerminalScreen() {
     let term: XTermTerminal | null = null;
     let resizeObserver: ResizeObserver | null = null;
     let onDataDisposable: { dispose: () => void } | null = null;
+    let ws: WebSocket | null = null;
 
     // --- Dynamic Imports ---
     // xterm.js is a client-side library and will cause errors if imported directly
@@ -88,10 +89,26 @@ export default function TerminalScreen() {
             // A timeout is used to ensure the DOM is fully rendered.
             setTimeout(() => localFitAddon.fit(), 0);
 
-            // --- Initial Output ---
-            term.writeln(`Connected to uCPE ${ucpeId}`);
-            term.writeln("This is a simulated terminal.");
-            term.write("$ ");
+            // --- WebSocket Setup ---
+            const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+            const wsUrl = `${protocol}//${window.location.hostname}:3002/terminal`;
+            console.log("Connecting to WebSocket:", wsUrl);
+            ws = new WebSocket(wsUrl);
+            ws.onopen = () => {
+              // Announce connection; the server's pty will provide the first prompt
+              term?.writeln(`\r\n\x1b[32m[WS connected to PTY]\x1b[0m`);
+            };
+            ws.onmessage = (evt) => {
+              // Data from the pty is sent over the websocket.
+              // We can write it directly to the terminal since it's sent as a string.
+              term?.write(evt.data);
+            };
+            ws.onerror = (err) => {
+              term?.writeln("\r\n\x1b[31m[WS error]\x1b[0m");
+            };
+            ws.onclose = () => {
+              term?.writeln("\r\n\x1b[33m[WS closed]\x1b[0m");
+            };
 
             // --- Event Listeners ---
 
@@ -110,39 +127,12 @@ export default function TerminalScreen() {
             resizeObserver.observe(terminalRef.current!);
 
             // --- Input Handling ---
-            let currentLine = "";
             onDataDisposable = term.onData((data: string) => {
-              if (!term) return; // Guard against disposed terminal
+              if (!term || ws?.readyState !== WebSocket.OPEN) return; // Guard against disposed terminal
 
-              switch (data) {
-                case "\r": // Enter key
-                  term.write("\r\n");
-                  if (currentLine.trim() === "exit") {
-                    term.writeln("Simulating disconnect...");
-                  } else if (currentLine.trim() !== "") {
-                    // Simulate an echo command
-                    term.writeln(`echo: ${currentLine}`);
-                  }
-                  term.write("$ ");
-                  currentLine = "";
-                  break;
-                case "\u007F": // Backspace
-                  if (currentLine.length > 0) {
-                    term.write("\b \b"); // Move cursor back, write space, move back again
-                    currentLine = currentLine.slice(0, -1);
-                  }
-                  break;
-                default:
-                  // Handle printable characters
-                  if (
-                    (data >= String.fromCharCode(0x20) &&
-                      data <= String.fromCharCode(0x7e)) ||
-                    data >= "\u00a0"
-                  ) {
-                    currentLine += data;
-                    term.write(data);
-                  }
-              }
+              // Forward all input directly to the WebSocket server.
+              // The server's pty will handle all processing (e.g., echo, backspace, enter).
+              ws?.send(data);
             });
           })
           .catch((error) =>
@@ -152,9 +142,10 @@ export default function TerminalScreen() {
       .catch((error) => console.error("Failed to load xterm", error));
 
     // --- Cleanup Function ---
-    // This function is returned from useEffect and runs when the component unmounts.
-    // It's crucial for preventing memory leaks.
     return () => {
+      if (ws) {
+        ws.close();
+      }
       if (resizeObserver) {
         resizeObserver.disconnect();
       }

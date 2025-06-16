@@ -45,3 +45,17 @@ export async function deleteUCPE(id: string) {
   revalidatePath("/dashboard/ucpes");
   return { success: true };
 }
+
+
+export async function getUcpeDetails(id: string) {
+  const ucpe = await prisma.uCPE.findUnique({
+    where: { id },
+  });
+  if (!ucpe) return null;
+  // Return a serializable object
+  return {
+    id: ucpe.id,
+    name: ucpe.name,
+    frpPort: ucpe.frpPort,
+  };
+}

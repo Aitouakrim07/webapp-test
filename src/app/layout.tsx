@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { lexend } from "@/app/ui/fonts";
+import { SessionProvider } from "next-auth/react";
+
 
 export const metadata: Metadata = {
   title: "Open Connect",
@@ -23,8 +25,10 @@ export default function RootLayout({
         <script
           src="https://cdn.jsdelivr.net/npm/@tabler/core@1.3.2/dist/js/tabler.min.js"
           defer
-        ></script>
-        {children}
+        ></script>  
+        <SessionProvider>
+          {children}
+        </SessionProvider>
       </body>
     </html>
   );
